@@ -57,3 +57,9 @@ I got the idea from Robin Edwards' ArduinoBASIC interpreter:
 * Edit `main.c` and modify the hardcoded LaBASIC program
 * Connect your LaFortuna board to your computer
 * Run `make` to flash your board
+
+## License
+
+[MIT License](LICENSE)
+
+Copyright (c) 2018 Alexandru Rosianu
