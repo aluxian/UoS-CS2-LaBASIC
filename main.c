@@ -7,14 +7,19 @@
 #define BASIC_ON 1
 #define BASIC_OFF 0
 
+// used to store variables
 struct BasicVariable {
   int is_set;
   char name[30];
   int value;
 };
 
+// cap the number of variables to 100 for now
 struct BasicVariable VARS[100];
 
+// hardcoded BASIC program
+// this should be embedded into the program somehow
+// also should be able to read it from the FS
 char *PROG[] = {
   "PRINT 'hello world'",
   "PRINT ENDL",
@@ -41,9 +46,13 @@ char *PROG[] = {
   "PRINT ENDL"
 };
 
+// counter to keep track of the currently executing instruction
 int PRGCNT = 0;
+
+// the number of lines in the program
 int PRGSIZ = sizeof(PROG) / sizeof(PROG[0]);
 
+// utility: trim whitespace at start and end of string
 void str_trim_whitespace(char str[]) {
   while (str[0] == ' ' || str[0] == '\n') {
     memmove(str, str + 1, strlen(str));
@@ -54,18 +63,22 @@ void str_trim_whitespace(char str[]) {
   }
 }
 
+// utility: check if strings starts with the given string
 int str_starts_with(char str[], char name[]) {
   return strncmp(name, str, strlen(name)) == 0;
 }
 
+// utility: remove n chars from the start of string
 void str_trim_beginning(char str[], int n) {
   memmove(str, str + n, strlen(str));
 }
 
+// utility: remove n chars from end of string
 void str_trim_end(char str[], int n) {
   str[strlen(str) - n] = '\0';
 }
 
+// utility: extract all chars until whitespace is encountered into a char array
 void str_get_until_whitespace(char str[], char buf[]) {
   int i = 0;
   while (i < strlen(str)) {
@@ -76,6 +89,7 @@ void str_get_until_whitespace(char str[], char buf[]) {
   buf[i] = '\0';
 }
 
+// utility: add chars at the end of the string
 void str_pad_right(char str[], char c, int n) {
   int i = strlen(str);
   while (n > 0) {
@@ -86,12 +100,14 @@ void str_pad_right(char str[], char c, int n) {
   str[i] = '\0';
 }
 
+// parse 'ON' or 'OFF' (e.g. for LED)
 int parse_on_off(char str[]) {
   if (str_starts_with(str, "ON")) return BASIC_ON;
   if (str_starts_with(str, "OFF")) return BASIC_OFF;
   return -1;
 }
 
+// store a new variable
 int b_vars_add(char name[], int value) {
   for (int i = 0; i < 100; i++) {
     if (!VARS[i].is_set) {
@@ -105,6 +121,7 @@ int b_vars_add(char name[], int value) {
   return -1;
 }
 
+// retrieve the value of a variable
 int b_vars_get(char name[]) {
   for (int i = 0; i < 100; i++) {
     if (strcmp(name, VARS[i].name) == 0) {
@@ -122,19 +139,28 @@ void do_print(char _str[]) {
   str_trim_beginning(str, strlen("PRINT"));
   str_trim_whitespace(str);
   
+  // string literal
   if (str[0] == '\'' && str[strlen(str) - 1] == '\'') {
     str_trim_beginning(str, 1);
     str_trim_end(str, 1);
     display_string(str);
-  } else if (str_starts_with(str, "ENDL")) {
+  }
+
+  // ENDL hardcoded literal
+  else if (str_starts_with(str, "ENDL")) {
     display_string("\n");
+
+  // variable
   } else if (str_starts_with(str, "$")) {
     str_trim_beginning(str, 1);
     int value = b_vars_get(str);
     char buf[10];
     itoa(value, buf, 10);
     display_string(buf);
-  } else {
+  }
+  
+  // fallback
+  else {
     display_string("PRINT_ERR");
   }
 }
@@ -146,6 +172,7 @@ void do_pause(char _str[]) {
   str_trim_beginning(str, strlen("PAUSE"));
   str_trim_whitespace(str);
 
+  // _delay_ms needs a compile-time value so improvise with an approximation
   int target_ms = atoi(str);
   for (int ms = 0; ms < target_ms; ms += 50) {
     _delay_ms(50);
@@ -159,6 +186,7 @@ void do_led(char _str[]) {
   str_trim_beginning(str, strlen("LED"));
   str_trim_whitespace(str);
 
+  // use brightness control
   int newState = parse_on_off(str);
   if (newState == BASIC_ON) os_led_brightness(255);
   if (newState == BASIC_OFF) os_led_brightness(0);
@@ -171,6 +199,7 @@ void do_let(char _str[]) {
   str_trim_beginning(str, strlen("LET"));
   str_trim_whitespace(str);
 
+  // get var name
   char name[30];
   str_get_until_whitespace(str, name);
   str_trim_beginning(str, strlen(name));
@@ -184,7 +213,10 @@ void do_let(char _str[]) {
   str_trim_beginning(str, strlen("="));
   str_trim_whitespace(str);
 
+  // get value
   int value = atoi(str);
+
+  // store var
   b_vars_add(name, value);
 }
 
@@ -195,6 +227,7 @@ void do_goto(char _str[]) {
   str_trim_beginning(str, strlen("GOTO"));
   str_trim_whitespace(str);
 
+  // edit program counter directly
   int lineNum = atoi(str);
   PRGCNT = lineNum - 2;
 }
@@ -227,6 +260,7 @@ void do_read(char _str[]) {
 }
 
 void interpret() {
+  // loop through all instructions
   while (0 <= PRGCNT && PRGCNT < PRGSIZ) {
     if (str_starts_with(PROG[PRGCNT], "PRINT")) do_print(PROG[PRGCNT]);
     if (str_starts_with(PROG[PRGCNT], "PAUSE")) do_pause(PROG[PRGCNT]);
@@ -241,6 +275,7 @@ void interpret() {
 void main(void) {
   os_init();
 
+  // init var array
   for (int i = 0; i < 100; i++) {
     VARS[i].is_set = 0;
   }
