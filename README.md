@@ -60,6 +60,6 @@ I got the idea from Robin Edwards' ArduinoBASIC interpreter:
 
 ## License
 
-[MIT License](LICENSE)
+[GNU GPL](LICENSE)
 
 Copyright (c) 2018 Alexandru Rosianu
