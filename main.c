@@ -27,7 +27,11 @@ char *PROG[] = {
   "PAUSE 500ms",
   "LED OFF",
   "PRINT ENDL",
-  "PRINT 'cool'",
+  "PRINT 'cool. creating a var now'",
+  "PRINT ENDL",
+  "LET test_var = 5",
+  "PRINT 'it is = '",
+  "PRINT $test_var",
   "PRINT ENDL"
 };
 
@@ -78,9 +82,21 @@ int b_vars_add(char name[], int value) {
       VARS[i].is_set = 1;
       strcpy(VARS[i].name, name);
       VARS[i].value = value;
-      break;
+      return i;
     }
   }
+
+  return -1;
+}
+
+int b_vars_get(char name[]) {
+  for (int i = 0; i < 100; i++) {
+    if (strcmp(name, VARS[i].name) == 0) {
+      return VARS[i].value;
+    }
+  }
+
+  return -1;
 }
 
 void do_print(char _str[]) {
@@ -96,8 +112,14 @@ void do_print(char _str[]) {
     display_string(str);
   } else if (str_starts_with(str, "ENDL")) {
     display_string("\n");
+  } else if (str_starts_with(str, "$")) {
+    str_trim_beginning(str, 1);
+    int value = b_vars_get(str);
+    char buf[10];
+    itoa(value, buf, 10);
+    display_string(buf);
   } else {
-    display_string("ERR");
+    display_string("PRINT_ERR");
   }
 }
 
@@ -126,6 +148,7 @@ void do_let(char _str[]) {
 
   char name[30];
   str_get_until_whitespace(str, name);
+  str_trim_beginning(str, strlen(name));
   str_trim_whitespace(str);
 
   if (str[0] != '=') {
