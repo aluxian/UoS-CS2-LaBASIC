@@ -50,6 +50,14 @@ I got the idea from Robin Edwards' ArduinoBASIC interpreter:
 
 * https://github.com/robinhedwards/ArduinoBASIC
 
+Based on FortunaOS which includes:
+
+* The RIOS Scheduler
+* Peter Dannegger’s Code for the Rotary Encoder
+* Peter Dannegger’s Code for Switch debouncing
+* Steve Gunn’s display driver
+* ChanN’s FAT File System
+
 ## Usage
 
 * Install the AVR toolchain and `make`
