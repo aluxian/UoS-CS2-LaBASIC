@@ -4,7 +4,37 @@
 #include "util/delay.h"
 #include "os.h"
 
-void trim_whitespace(char str[]) {
+#define BASIC_ON 1
+#define BASIC_OFF 0
+
+struct BasicVariable {
+  int is_set;
+  char name[30];
+  int value;
+};
+
+struct BasicVariable VARS[100];
+
+char *PROG[] = {
+  "PRINT 'hello world'",
+  "PRINT ENDL",
+  "GOTO 5",
+  "PRINT 'you should never see this'",
+  "PRINT 'hello again'",
+  "LED OFF",
+  "PAUSE 500ms",
+  "LED ON",
+  "PAUSE 500ms",
+  "LED OFF",
+  "PRINT ENDL",
+  "PRINT 'cool'",
+  "PRINT ENDL"
+};
+
+int PRGCNT = 0;
+int PRGSIZ = sizeof(PROG) / sizeof(PROG[0]);
+
+void str_trim_whitespace(char str[]) {
   while (str[0] == ' ' || str[0] == '\n') {
     memmove(str, str + 1, strlen(str));
   }
@@ -14,99 +44,135 @@ void trim_whitespace(char str[]) {
   }
 }
 
+int str_starts_with(char str[], char name[]) {
+  return strncmp(name, str, strlen(name)) == 0;
+}
+
+void str_trim_beginning(char str[], int n) {
+  memmove(str, str + n, strlen(str));
+}
+
+void str_trim_end(char str[], int n) {
+  str[strlen(str) - n] = '\0';
+}
+
+void str_get_until_whitespace(char str[], char buf[]) {
+  int i = 0;
+  while (i < strlen(str)) {
+    if (str[i] == ' ') break;
+    buf[i] = str[i];
+    i++;
+  }
+  buf[i] = '\0';
+}
+
+int parse_on_off(char str[]) {
+  if (str_starts_with(str, "ON")) return BASIC_ON;
+  if (str_starts_with(str, "OFF")) return BASIC_OFF;
+  return -1;
+}
+
+int b_vars_add(char name[], int value) {
+  for (int i = 0; i < 100; i++) {
+    if (!VARS[i].is_set) {
+      VARS[i].is_set = 1;
+      strcpy(VARS[i].name, name);
+      VARS[i].value = value;
+      break;
+    }
+  }
+}
+
 void do_print(char _str[]) {
   char str[100];
   strcpy(str, _str);
   
-  memmove(str, str + strlen("PRINT"), strlen(str));
-  trim_whitespace(str);
+  str_trim_beginning(str, strlen("PRINT"));
+  str_trim_whitespace(str);
   
   if (str[0] == '\'' && str[strlen(str) - 1] == '\'') {
-    memmove(str, str + 1, strlen(str));
-    str[strlen(str) - 1] = '\0';
+    str_trim_beginning(str, 1);
+    str_trim_end(str, 1);
     display_string(str);
-  } else if (strncmp("ENDL", str, strlen("ENDL")) == 0) {
+  } else if (str_starts_with(str, "ENDL")) {
     display_string("\n");
   } else {
     display_string("ERR");
   }
 }
 
-void do_pin(char _str[]) {
+void do_pause(char _str[]) {
+  _delay_ms(500);
+}
+
+void do_led(char _str[]) {
   char str[100];
   strcpy(str, _str);
   
-  memmove(str, str + strlen("PIN"), strlen(str));
-  trim_whitespace(str);
+  str_trim_beginning(str, strlen("LED"));
+  str_trim_whitespace(str);
 
-  char num1[10] = "";
-  char num2[10] = "";
+  int newState = parse_on_off(str);
+  if (newState == BASIC_ON) os_led_brightness(255);
+  if (newState == BASIC_OFF) os_led_brightness(0);
+}
+
+void do_let(char _str[]) {
+  char str[100];
+  strcpy(str, _str);
   
-  while (isdigit(str[0])) {
-    char tmpdigit[] = "0";
-    tmpdigit[0] = str[0];
-    strcat(num1, tmpdigit);
-    memmove(str, str + 1, strlen(str));
+  str_trim_beginning(str, strlen("LET"));
+  str_trim_whitespace(str);
+
+  char name[30];
+  str_get_until_whitespace(str, name);
+  str_trim_whitespace(str);
+
+  if (str[0] != '=') {
+    display_string("ERR");
+    return;
   }
 
-  trim_whitespace(str);
+  str_trim_beginning(str, strlen("="));
+  str_trim_whitespace(str);
 
-  while (isdigit(str[0])) {
-    char tmpdigit[2] = "0";
-    tmpdigit[0] = str[0];
-    strcat(num2, tmpdigit);
-    memmove(str, str + 1, strlen(str));
-  }
-
-  int n1 = atoi(num1);
-  int n2 = atoi(num2);
+  int value = atoi(str);
+  b_vars_add(name, value);
 }
 
-void do_pinmode(char _str[]) {
+void do_goto(char _str[]) {
+  char str[100];
+  strcpy(str, _str);
+  
+  str_trim_beginning(str, strlen("GOTO"));
+  str_trim_whitespace(str);
 
+  int lineNum = atoi(str);
+  PRGCNT = lineNum - 2;
 }
 
-void do_pause(char _str[]) {
-  _delay_ms(1000);
-}
-
-void do_led_on(char _str[]) {
-  LED_ON;
-}
-
-void do_led_off(char _str[]) {
-  LED_OFF;
-}
-
-void interpret_line(char str[]) {
-  if (strncmp("PRINT", str, strlen("PRINT")) == 0) do_print(str);
-  if (strncmp("PIN", str, strlen("PIN")) == 0) do_pin(str);
-  if (strncmp("PINMODE", str, strlen("PINMODE")) == 0) do_pinmode(str);
-  if (strncmp("PAUSE", str, strlen("PAUSE")) == 0) do_pause(str);
-  if (strncmp("LED_ON", str, strlen("LED_ON")) == 0) do_led_on(str);
-  if (strncmp("LED_OFF", str, strlen("LED_OFF")) == 0) do_led_off(str);
-}
-
-void interpret_prog(char *prog[], int n_lines) {
-  for (int i = 0; i < n_lines; i++) {
-    interpret_line(prog[i]);
+void interpret() {
+  while (0 <= PRGCNT && PRGCNT < PRGSIZ) {
+    if (str_starts_with(PROG[PRGCNT], "PRINT")) do_print(PROG[PRGCNT]);
+    if (str_starts_with(PROG[PRGCNT], "PAUSE")) do_pause(PROG[PRGCNT]);
+    if (str_starts_with(PROG[PRGCNT], "LED")) do_led(PROG[PRGCNT]);
+    if (str_starts_with(PROG[PRGCNT], "LET")) do_let(PROG[PRGCNT]);
+    if (str_starts_with(PROG[PRGCNT], "GOTO")) do_goto(PROG[PRGCNT]);
+    PRGCNT++;
   }
 }
 
 void main(void) {
   os_init();
 
-  char *prog[] = {
-    "PRINT 'hello world'",
-    "LED_OFF",
-    "PAUSE 500",
-    "PRINT 'cool'"
-  };
-
-  int lines = 2;
+  for (int i = 0; i < 100; i++) {
+    VARS[i].is_set = 0;
+  }
 
   f_mount(&FatFs, "", 0);
-  interpret_prog(prog, lines);
+  //display_string(">>> running program\n");
+  interpret();
+  //display_string(">>> done\n");
 
   sei();
   for (;;) {}
