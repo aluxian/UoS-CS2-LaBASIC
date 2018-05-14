@@ -19,6 +19,7 @@ LED OFF                     # turn the LED off
 PAUSE 123                   # pause for 123 ms
 LET varname = 42            # assign a value to a variable
 GOTO 5                      # skip to the instruction on line 5 (1-based index)
+READ input                  # read a number with the rotary encoder and store it in a variable
 ```
 
 To be implemented:
