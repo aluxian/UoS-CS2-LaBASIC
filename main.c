@@ -21,17 +21,23 @@ char *PROG[] = {
   "GOTO 5",
   "PRINT 'you should never see this'",
   "PRINT 'hello again'",
-  "LED OFF",
-  "PAUSE 500ms",
   "LED ON",
-  "PAUSE 500ms",
+  "PAUSE 1500",
   "LED OFF",
+  "PAUSE 800",
+  "LED ON",
   "PRINT ENDL",
   "PRINT 'cool. creating a var now'",
   "PRINT ENDL",
   "LET test_var = 5",
   "PRINT 'it is = '",
   "PRINT $test_var",
+  "PRINT ENDL",
+  "PRINT 'reading input from encoder'",
+  "PRINT ENDL",
+  "READ input_var",
+  "PRINT 'read value is = '",
+  "PRINT $input_var",
   "PRINT ENDL"
 };
 
@@ -68,6 +74,16 @@ void str_get_until_whitespace(char str[], char buf[]) {
     i++;
   }
   buf[i] = '\0';
+}
+
+void str_pad_right(char str[], char c, int n) {
+  int i = strlen(str);
+  while (n > 0) {
+    str[i] = c;
+    i++;
+    n--;
+  }
+  str[i] = '\0';
 }
 
 int parse_on_off(char str[]) {
@@ -124,7 +140,16 @@ void do_print(char _str[]) {
 }
 
 void do_pause(char _str[]) {
-  _delay_ms(500);
+  char str[100];
+  strcpy(str, _str);
+  
+  str_trim_beginning(str, strlen("PAUSE"));
+  str_trim_whitespace(str);
+
+  int target_ms = atoi(str);
+  for (int ms = 0; ms < target_ms; ms += 50) {
+    _delay_ms(50);
+  }
 }
 
 void do_led(char _str[]) {
@@ -174,6 +199,33 @@ void do_goto(char _str[]) {
   PRGCNT = lineNum - 2;
 }
 
+void do_read(char _str[]) {
+  char str[100];
+  strcpy(str, _str);
+  
+  str_trim_beginning(str, strlen("READ"));
+  str_trim_whitespace(str);
+
+  char name[30];
+  str_get_until_whitespace(str, name);
+
+  int cvalue = 0;
+  display_string("0");
+
+  while (!get_switch_short(_BV(SWC))) {
+    cvalue += os_enc_delta();
+    if (cvalue < 0) cvalue = 0;
+    char buf[30];
+    itoa(cvalue, buf, 10);
+    str_pad_right(buf, ' ', 10);
+    display_string_xy(buf, 0, display.y);
+    _delay_ms(50);
+  }
+
+  display_string("\n");
+  b_vars_add(name, cvalue);
+}
+
 void interpret() {
   while (0 <= PRGCNT && PRGCNT < PRGSIZ) {
     if (str_starts_with(PROG[PRGCNT], "PRINT")) do_print(PROG[PRGCNT]);
@@ -181,6 +233,7 @@ void interpret() {
     if (str_starts_with(PROG[PRGCNT], "LED")) do_led(PROG[PRGCNT]);
     if (str_starts_with(PROG[PRGCNT], "LET")) do_let(PROG[PRGCNT]);
     if (str_starts_with(PROG[PRGCNT], "GOTO")) do_goto(PROG[PRGCNT]);
+    if (str_starts_with(PROG[PRGCNT], "READ")) do_read(PROG[PRGCNT]);
     PRGCNT++;
   }
 }
